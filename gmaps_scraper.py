@@ -406,36 +406,31 @@ def write_csv_header(writer: csv.DictWriter) -> None:
     writer.writeheader()
 
 
-def main() -> None:
-    args = parse_args()
-    setup_logging(args.log_level)
-
-    query = f"{args.region} {args.category}".strip()
-    fields = [
-        "name",
-        "address",
-        "phone",
-        "website",
-        "category",
-        "rating",
-        "reviews_count",
-        "latitude",
-        "longitude",
-        "gmaps_url",
-    ]
+def scrape_maps(
+    region: str,
+    category: str,
+    max_results: int = 150,
+    *,
+    headless: bool = True,
+    proxy: str = "",
+    lang: str = "zh-CN,zh;q=0.9,en;q=0.8",
+    include_without_phone: bool = False,
+    slowmo: int = 0,
+) -> List[Dict[str, Optional[str]]]:
+    query = f"{region} {category}".strip()
 
     launch_kwargs = {
-        "headless": args.headless,
-        "slow_mo": args.slowmo,
+        "headless": headless,
+        "slow_mo": slowmo,
         "args": [
-            f"--lang={args.lang}",
+            f"--lang={lang}",
             "--disable-blink-features=AutomationControlled",
             "--no-default-browser-check",
             "--disable-site-isolation-trials",
         ],
     }
-    if args.proxy:
-        launch_kwargs["proxy"] = {"server": args.proxy}
+    if proxy:
+        launch_kwargs["proxy"] = {"server": proxy}
 
     user_agent = (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5_2) "
@@ -451,7 +446,7 @@ def main() -> None:
         context = browser.new_context(
             user_agent=user_agent,
             locale="zh-CN",
-            extra_http_headers={"Accept-Language": args.lang},
+            extra_http_headers={"Accept-Language": lang},
             viewport={"width": 1380, "height": 900},
         )
         page = context.new_page()
@@ -465,15 +460,12 @@ def main() -> None:
         perform_search(page, query)
         random_human_delay()
 
-        # Progressive load and iterate cards
-        # We will scroll in batches and iterate newly visible cards each time
-        total_target = args.max_results
+        total_target = max_results
         attempts = 0
         while len(rows) < total_target and attempts < 80:
             attempts += 1
             scroll_results_container(page, max_scrolls=4)
             locators = get_result_cards(page)
-            # Gather indices to attempt clicking
             candidate_elements = []
             for loc in locators:
                 count = loc.count()
@@ -486,7 +478,6 @@ def main() -> None:
                 if len(rows) >= total_target:
                     break
                 try:
-                    # Compute a simple key from card text to avoid re-clicking
                     text_preview = card.inner_text(timeout=1000)[:120]
                     key = re.sub(r"\s+", " ", text_preview)
                     if key in visited_keys:
@@ -495,7 +486,6 @@ def main() -> None:
 
                     card.scroll_into_view_if_needed(timeout=3000)
                     random_human_delay(0.2, 0.6)
-                    # Prefer clicking a link or the main clickable area
                     clickable = card.locator("a, div, button").first
                     clickable.click(timeout=5000)
                     wait_for_place_details_loaded(page)
@@ -504,25 +494,22 @@ def main() -> None:
                     place = extract_place_details(page)
                     if place.get("name"):
                         has_phone = bool(place.get("phone"))
-                        if has_phone or args.include_without_phone:
+                        if has_phone or include_without_phone:
                             rows.append(place)
                             logging.info(
                                 "Captured: %s | phone=%s", place.get("name"), place.get("phone") or "-"
                             )
-                    # Go back to results list view (fallbacks)
                     try:
                         page.keyboard.press("Escape")
                         random_human_delay(0.2, 0.5)
                     except Exception:
                         pass
-                    # Try clicking the back button in the left panel if present
                     try:
                         back_btn = page.locator("button[aria-label*='Back'], button[aria-label*='返回']").first
                         back_btn.click(timeout=1500)
                         random_human_delay(0.2, 0.6)
                     except Exception:
                         pass
-                    # As a last resort, use browser back
                     try:
                         page.go_back(wait_until="domcontentloaded", timeout=5000)
                         random_human_delay(0.3, 0.8)
@@ -535,7 +522,6 @@ def main() -> None:
                     logging.debug("Error while processing a card: %s", e)
                     continue
 
-            # small human-like pause between batches
             random_human_delay(0.8, 1.6)
 
         logging.info("Collected %d rows", len(rows))
@@ -552,6 +538,37 @@ def main() -> None:
             continue
         seen_key.add(key)
         final.append(r)
+
+    return final
+
+
+def main() -> None:
+    args = parse_args()
+    setup_logging(args.log_level)
+
+    fields = [
+        "name",
+        "address",
+        "phone",
+        "website",
+        "category",
+        "rating",
+        "reviews_count",
+        "latitude",
+        "longitude",
+        "gmaps_url",
+    ]
+
+    final = scrape_maps(
+        args.region,
+        args.category,
+        max_results=args.max_results,
+        headless=args.headless,
+        proxy=args.proxy,
+        lang=args.lang,
+        include_without_phone=args.include_without_phone,
+        slowmo=args.slowmo,
+    )
 
     with open(args.out, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fields)

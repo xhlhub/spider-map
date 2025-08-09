@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>采集结果 - SpiderMap</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto,
+          Helvetica, Arial;
+        margin: 24px;
+      }
+      .card {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px;
+        border: 1px solid #eee;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 16px;
+      }
+      th,
+      td {
+        border-bottom: 1px solid #f0f0f0;
+        padding: 8px 10px;
+        text-align: left;
+        font-size: 14px;
+        vertical-align: top;
+      }
+      th {
+        background: #fafafa;
+        position: sticky;
+        top: 0;
+      }
+      .actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 10px;
+      }
+      button {
+        background: #2563eb;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 14px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button:hover {
+        background: #1d4ed8;
+      }
+      .back a {
+        text-decoration: none;
+        color: #2563eb;
+      }
+      .meta {
+        color: #666;
+        font-size: 13px;
+      }
+      .scroll {
+        max-height: 60vh;
+        overflow: auto;
+        border: 1px solid #f0f0f0;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="row">
+        <h2 style="margin: 0">采集结果</h2>
+        <div class="meta">
+          （地点：{{ region }}，类目：{{ category }}，条数：{{ rows|length }}）
+        </div>
+      </div>
+
+      <div class="actions">
+        <form method="post" action="/download-excel">
+          <input
+            type="hidden"
+            name="rows_json"
+            value="{{ rows_json | tojson | safe }}"
+          />
+          <button type="submit">下载 Excel</button>
+        </form>
+        <form method="post" action="/download-csv">
+          <input
+            type="hidden"
+            name="rows_json"
+            value="{{ rows_json | tojson | safe }}"
+          />
+          <button type="submit">下载 CSV</button>
+        </form>
+        <div class="back"><a href="/">返回</a></div>
+      </div>
+
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>地址</th>
+              <th>电话</th>
+              <th>类别</th>
+              <th>评分</th>
+              <th>评论数</th>
+              <th>网站</th>
+              <th>地图链接</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr>
+              <td>{{ r.get('name','') }}</td>
+              <td>{{ r.get('address','') }}</td>
+              <td>{{ r.get('phone','') }}</td>
+              <td>{{ r.get('category','') }}</td>
+              <td>{{ r.get('rating','') }}</td>
+              <td>{{ r.get('reviews_count','') }}</td>
+              <td>
+                {% if r.get('website') %}
+                <a target="_blank" href="{{ r.get('website') }}">网站</a>
+                {% endif %}
+              </td>
+              <td>
+                {% if r.get('gmaps_url') %}
+                <a target="_blank" href="{{ r.get('gmaps_url') }}">地图</a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </body>
+</html>
