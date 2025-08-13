@@ -4,12 +4,7 @@
       "runtime": "python3.11",
       "maxDuration": 60,
       "memory": 1024,
-      "includeFiles": [
-        "templates/**",
-        "app.py",
-        "gmaps_scraper.py",
-        "ms-playwright/**"
-      ]
+      "includeFiles": "{templates/**,app.py,gmaps_scraper.py,ms-playwright/**}"
     }
   },
   "installCommand": "pip3 install -r requirements.txt",
