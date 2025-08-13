@@ -1,7 +1,6 @@
 {
   "functions": {
     "api/index.py": {
-      "runtime": "python3.11",
       "maxDuration": 60,
       "memory": 1024,
       "includeFiles": "{templates/**,app.py,gmaps_scraper.py,ms-playwright/**}"
